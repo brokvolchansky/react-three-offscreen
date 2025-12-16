@@ -1,4 +1,4 @@
 ```shell
-yarn
-yarn dev
+pnpm install
+pnpm dev
 ```

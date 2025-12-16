@@ -1,19 +1,47 @@
-import * as THREE from 'three'
+/// <reference lib="webworker" />
+
 import mitt from 'mitt'
 import { extend, createRoot, ReconcilerRoot, Dpr, Size } from '@react-three/fiber'
 import { DomEvent } from '@react-three/fiber/dist/declarations/src/core/events'
 import { createPointerEvents } from './events'
+import type { RendererType } from './gl/types'
 
-export function render(children: React.ReactNode) {
-  extend(THREE)
 
+// Worker global scope with shims for three.js
+interface WorkerGlobalScopeWithShims extends DedicatedWorkerGlobalScope {
+  window: unknown
+  document: unknown
+  Image: unknown
+}
+
+declare const self: WorkerGlobalScopeWithShims
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+
+
+export function render(children: React.ReactNode, renderer: RendererType = 'webgl') {
   let root: ReconcilerRoot<HTMLCanvasElement>
   let dpr: Dpr = [1, 2]
-  let size: Size = { width: 0, height: 0, top: 0, left: 0, updateStyle: false }
+  let size: Size = { width: 0, height: 0, top: 0, left: 0 }
   const emitter = mitt()
 
-  const handleInit = (payload: any) => {
-    const { props, drawingSurface: canvas, width, top, left, height, pixelRatio } = payload
+  const handleInit = async (payload: any) => {
+    const {
+      props: rawProps,
+      drawingSurface: canvas,
+      width: rawWidth,
+      top,
+      left,
+      height: rawHeight,
+      pixelRatio,
+    } = payload
+    const { onCreated: userOnCreated, ...props } = rawProps || {}
+
+    // WebGPU requires integer dimensions, ensure they're at least 1
+    const width = Math.max(1, Math.floor(rawWidth))
+    const height = Math.max(1, Math.floor(rawHeight))
+
     try {
       // Unmount root if already mounted
       if (root) {
@@ -44,15 +72,61 @@ export function render(children: React.ReactNode) {
           emitter.off(event, callback)
         },
       })
+      // Set canvas dimensions before creating WebGPU context
+      canvas.width = width * Math.min(Math.max(1, pixelRatio), 2)
+      canvas.height = height * Math.min(Math.max(1, pixelRatio), 2)
+
+      // Configure root (await for async gl factory support, e.g. WebGPU)
+      const { createRenderer, THREE } = renderer === 'webgpu' ? await import('./gl/webgpu') : await import('./gl/webgl')
+
       // Create react-three-fiber root
       root = createRoot(canvas)
-      // Configure root
-      root.configure({
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      extend(THREE as any)
+
+      // Shim ImageLoader for worker environment
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      THREE.ImageLoader.prototype.load = function (
+        url: string,
+        onLoad: (img: ImageBitmap) => void,
+        onProgress: () => void,
+        onError: (e: Error) => void
+      ) {
+        if (this.path !== undefined) url = this.path + url
+        url = this.manager.resolveURL(url)
+        const scope = this
+        const cached = THREE.Cache.get(url)
+
+        if (cached !== undefined) {
+          scope.manager.itemStart(url)
+          if (onLoad) onLoad(cached)
+          scope.manager.itemEnd(url)
+          return cached
+        }
+
+        fetch(url)
+          .then((res) => res.blob())
+          .then((res) => createImageBitmap(res, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+          .then((bitmap) => {
+            THREE.Cache.add(url, bitmap)
+            if (onLoad) onLoad(bitmap)
+            scope.manager.itemEnd(url)
+          })
+          .catch(onError)
+        return {}
+      }
+
+      await root.configure({
+        ...(renderer === 'webgpu' ? { gl: () => createRenderer(canvas, props.gl) } : {}),
         events: createPointerEvents(emitter),
-        size: (size = { width, height, top, left, updateStyle: false }),
+        size: (size = { width, height, top, left }),
         dpr: (dpr = Math.min(Math.max(1, pixelRatio), 2)),
         ...props,
         onCreated: (state) => {
+          // console.log('render.ts: renderer =', state.gl.constructor.name)
+
           if (props.eventPrefix) {
             state.setEvents({
               compute: (event, state) => {
@@ -63,11 +137,13 @@ export function render(children: React.ReactNode) {
               },
             })
           }
+
+          userOnCreated?.(state)
         },
       })
 
       // Render children once
-      root.render(children)
+      await root.render(children)
     } catch (e: any) {
       postMessage({ type: 'error', payload: e?.message })
     }
@@ -78,7 +154,7 @@ export function render(children: React.ReactNode) {
 
   const handleResize = ({ width, height, top, left }: Size) => {
     if (!root) return
-    root.configure({ size: (size = { width, height, top, left, updateStyle: false }), dpr })
+    root.configure({ size: (size = { width, height, top, left }), dpr })
   }
 
   const handleEvents = (payload: any) => {
@@ -86,9 +162,13 @@ export function render(children: React.ReactNode) {
   }
 
   const handleProps = (payload: any) => {
+    // For WebGPU, we cannot reconfigure after init because r3f will try to create WebGLRenderer
+    // All props must be passed during init. Only dpr updates are safe.
     if (!root) return
-    if (payload.dpr) dpr = payload.dpr
-    root.configure({ size, dpr, ...payload })
+    if (payload.dpr) {
+      dpr = payload.dpr
+      root.configure({ size, dpr })
+    }
   }
 
   const handlerMap = {
@@ -102,38 +182,6 @@ export function render(children: React.ReactNode) {
     const { type, payload } = event.data
     const handler = handlerMap[type as keyof typeof handlerMap]
     if (handler) handler(payload)
-  }
-
-  // Shims for threejs
-  // @ts-ignore
-  THREE.ImageLoader.prototype.load = function (
-    url: string,
-    onLoad: (img: ImageBitmap) => void,
-    onProgress: () => void,
-    onError: (e: Error) => void
-  ) {
-    if (this.path !== undefined) url = this.path + url
-    url = this.manager.resolveURL(url)
-    const scope = this
-    const cached = THREE.Cache.get(url)
-
-    if (cached !== undefined) {
-      scope.manager.itemStart(url)
-      if (onLoad) onLoad(cached)
-      scope.manager.itemEnd(url)
-      return cached
-    }
-
-    fetch(url)
-      .then((res) => res.blob())
-      .then((res) => createImageBitmap(res, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
-      .then((bitmap) => {
-        THREE.Cache.add(url, bitmap)
-        if (onLoad) onLoad(bitmap)
-        scope.manager.itemEnd(url)
-      })
-      .catch(onError)
-    return {}
   }
 
   // Shims for web offscreen canvas

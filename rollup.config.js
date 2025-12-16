@@ -15,12 +15,6 @@ const getBabelOptions = ({ useESModules }) => ({
     [
       '@babel/preset-env',
       {
-        include: [
-          '@babel/plugin-proposal-optional-chaining',
-          '@babel/plugin-proposal-nullish-coalescing-operator',
-          '@babel/plugin-proposal-numeric-separator',
-          '@babel/plugin-proposal-logical-assignment-operators',
-        ],
         bugfixes: true,
         loose: true,
         modules: false,
@@ -36,13 +30,13 @@ const getBabelOptions = ({ useESModules }) => ({
 export default [
   {
     input: `./src/index.tsx`,
-    output: { file: `dist/index.mjs`, format: 'esm' },
+    output: { dir: `dist`, format: 'esm', entryFileNames: 'index.mjs', chunkFileNames: '[name].mjs' },
     external,
     plugins: [babel(getBabelOptions({ useESModules: true })), resolve({ extensions })],
   },
   {
     input: `./src/index.tsx`,
-    output: { file: `dist/index.js`, format: 'cjs' },
+    output: { dir: `dist/cjs`, format: 'cjs', entryFileNames: 'index.js', chunkFileNames: '[name].js' },
     external,
     plugins: [babel(getBabelOptions({ useESModules: false })), resolve({ extensions })],
   },

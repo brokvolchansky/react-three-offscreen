@@ -16,6 +16,7 @@ function Model() {
     <>
       <Center ref={mesh}>
         <mesh
+          castShadow
           geometry={nodes.cube.geometry}
           material={materials.base}
           material-color={color}
@@ -25,7 +26,10 @@ function Model() {
           onPointerOut={(e) => setHover(false)}
         />
       </Center>
-      <ContactShadows color={color} position={[0, -1.5, 0]} blur={3} opacity={0.75} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, 0]} receiveShadow>
+        <planeGeometry args={[10, 10]} />
+        <shadowMaterial transparent opacity={0.4} side="double" />
+      </mesh>
     </>
   )
 }
@@ -34,7 +38,13 @@ export default function App() {
   return (
     <>
       <ambientLight />
-      <pointLight position={[10, 10, 5]} />
+      <directionalLight
+        castShadow
+        position={[5, 5, 5]}
+        shadow-mapSize={[2048, 2048]}
+        shadow-radius={8}
+        shadow-blurSamples={16}
+      />
       <Model />
       <Environment preset="city" />
       <CameraControls minPolarAngle={Math.PI / 2} maxPolarAngle={Math.PI / 2} />

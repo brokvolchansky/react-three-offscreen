@@ -2,17 +2,17 @@
   "compilerOptions": {
     "module": "esnext",
     "target": "es2018",
+    "lib": ["ES2018", "DOM", "WebWorker"],
     "allowSyntheticDefaultImports": true,
     "jsx": "react",
     "strict": true,
     "preserveSymlinks": true,
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "esModuleInterop": true,
     "declaration": true,
     "declarationDir": "dist",
     "skipLibCheck": true,
-    "removeComments": false,
-    "baseUrl": "."
+    "removeComments": false
   },
   "include": ["src"]
 }

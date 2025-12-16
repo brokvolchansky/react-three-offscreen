@@ -1,0 +1,76 @@
+packages:
+  - .
+  - examples/*
+
+catalog:
+  # React ecosystem
+  react: 19.2.3
+  react-dom: 19.2.3
+  react-use-measure: 2.1.7
+
+  # Three.js ecosystem
+  three: 0.182.0
+  "@react-three/fiber": 9.4.2
+  "@react-three/drei": 10.7.7
+  "@react-three/rapier": 2.2.0
+  maath: 0.10.8
+
+  # TypeScript & Types
+  typescript: 5.9.3
+  "@types/react": 19.2.7
+  "@types/react-dom": 19.2.3
+  "@types/three": 0.182.0
+  "@types/node": 25.0.1
+  "@types/jest": 30.0.0
+  "@types/react-test-renderer": 19.1.0
+
+  # ESLint
+  eslint: 9.39.2
+  "@eslint/js": 9.39.2
+  eslint-plugin-react-hooks: 5.2.0
+  eslint-plugin-react-refresh: 0.4.20
+  globals: 16.2.0
+  typescript-eslint: 8.49.0
+
+  # Babel
+  "@babel/core": 7.28.5
+  "@babel/plugin-transform-modules-commonjs": 7.27.1
+  "@babel/plugin-transform-parameters": 7.27.7
+  "@babel/plugin-transform-runtime": 7.28.5
+  "@babel/plugin-transform-template-literals": 7.27.1
+  "@babel/preset-env": 7.28.5
+  "@babel/preset-react": 7.28.5
+  "@babel/preset-typescript": 7.28.5
+  babel-loader: 10.0.0
+  babel-plugin-dynamic-import-node: 2.3.3
+
+  # Rollup
+  rollup: 4.53.3
+  "@rollup/plugin-babel": 6.1.0
+  "@rollup/plugin-node-resolve": 16.0.3
+  "@rollup/plugin-terser": 0.4.4
+  rollup-plugin-size-snapshot: 0.12.0
+
+  # Vite
+  vite: 7.2.7
+  "@vitejs/plugin-react": 5.1.2
+  vite-plugin-react-worker: 0.5.13
+
+  # Next.js
+  next: 16.0.10
+
+  # Other tools
+  husky: 9.1.7
+  lint-staged: 16.2.7
+  prettier: 3.7.4
+  zustand: 5.0.9
+  mitt: 3.0.1
+  "@pmndrs/branding": 0.0.8
+  styled-components: 6.1.19
+
+onlyBuiltDependencies:
+  - core-js
+  - core-js-pure
+  - esbuild
+  - fsevents
+  - sharp

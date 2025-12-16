@@ -1,34 +1,27 @@
 {
-  "name": "vite-react-starter",
+  "name": "pacman-example",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint src",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@pmndrs/branding": "^0.0.8",
-    "@react-three/drei": "^9.83.9",
-    "@react-three/fiber": "^8.13.5",
-    "@react-three/offscreen": "^0.0.8",
-    "@react-three/rapier": "0.15.1",
-    "maath": "^0.7.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "styled-components": "^6.0.5",
-    "three": "^0.154.0"
+    "@pmndrs/branding": "catalog:",
+    "@react-three/drei": "catalog:",
+    "@react-three/fiber": "catalog:",
+    "@react-three/offscreen": "workspace:*",
+    "@react-three/rapier": "catalog:",
+    "maath": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "styled-components": "catalog:",
+    "three": "catalog:"
   },
   "devDependencies": {
-    "@types/react": "^18.2.15",
-    "@types/react-dom": "^18.2.7",
-    "@vitejs/plugin-react": "3.1.0",
-    "eslint": "^8.45.0",
-    "eslint-plugin-react": "^7.33.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.3",
-    "vite": "^4.4.6"
+    "vite": "catalog:"
   }
 }

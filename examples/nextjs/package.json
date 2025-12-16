@@ -9,13 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@react-three/drei": "^9.83.9",
-    "@react-three/fiber": "^8.12.2",
-    "@react-three/offscreen": "^0.0.5",
-    "@types/three": "^0.150.2",
-    "next": "13.3.1",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "three": "^0.151.3"
+    "@react-three/drei": "catalog:",
+    "@react-three/fiber": "catalog:",
+    "@react-three/offscreen": "workspace:*",
+    "@types/three": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "three": "catalog:"
   }
 }

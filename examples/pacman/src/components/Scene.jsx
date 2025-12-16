@@ -1,9 +1,10 @@
 import * as THREE from 'three'
-import { useLayoutEffect, useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
-import { useGLTF, Sky, Environment, Cloud, OrbitControls } from '@react-three/drei'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useGLTF, Environment, Cloud, OrbitControls, Sky as DreiSky } from '@react-three/drei'
 import { Physics, RigidBody } from '@react-three/rapier'
 import { easing } from 'maath'
+import { SkyMesh } from 'three/addons/objects/SkyMesh.js'
 
 export default function App() {
   return (
@@ -94,8 +95,8 @@ const Box = ({ length = 4, ...props }) => (
 
 function Sphere({ position }) {
   const ref = useRef()
-  useLayoutEffect(() => {
-    ref.current.setLinvel({ x: 0, y: 10, z: 0 })
+  useEffect(() => {
+    ref.current?.setLinvel({ x: 0, y: 10, z: 0 })
   }, [])
   return (
     <RigidBody position={position} ref={ref} colliders="ball" restitution={0.7}>
@@ -113,3 +114,23 @@ const Cylinder = (props) => (
     <meshStandardMaterial />
   </mesh>
 )
+
+function Sky() {
+  const { gl } = useThree()
+  const isWebGPU = gl.isWebGPURenderer
+
+  const sky = useMemo(() => {
+    if (!isWebGPU) return null
+    const mesh = new SkyMesh()
+    mesh.scale.setScalar(450000)
+    const sun = new THREE.Vector3()
+    const phi = THREE.MathUtils.degToRad(90 - 2)
+    const theta = THREE.MathUtils.degToRad(180)
+    sun.setFromSphericalCoords(1, phi, theta)
+    mesh.sunPosition.value.copy(sun)
+    return mesh
+  }, [isWebGPU])
+
+  if (!isWebGPU) return <DreiSky />
+  return <primitive object={sky} />
+}

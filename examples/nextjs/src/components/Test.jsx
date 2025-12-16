@@ -1,1 +1,2 @@
-console.log("hi")
+import Scene from './Scene'
+export default Scene

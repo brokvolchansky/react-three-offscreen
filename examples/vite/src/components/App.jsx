@@ -9,5 +9,5 @@ const Scene = lazy(() => import('./Scene'))
 const worker = new Worker(new URL('./worker.jsx', import.meta.url), { type: 'module' })
 
 export default function App() {  
-  return <Canvas camera={{ position: [0, 0, 10], fov: 25 }} worker={worker} fallback={<Scene />} />
+  return <Canvas shadows camera={{ position: [0, 0, 10], fov: 25 }} worker={worker} fallback={<Scene />} />
 }

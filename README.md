@@ -93,14 +93,19 @@ const App = dynamic(() => import('@/components/App'), { ssr: false })
 
 ### Vite
 
-Vites `@vitejs/plugin-react` tries to inject styles into `document` and assumes the presence of `window`, neither exist in a worker. As such you can consider the official React plugin faulty, it won't run React in a web worker. The workaround:
-
-1. yarn add @vitejs/plugin-react@3.1.0
-2. disable fast refresh (see: [stackoverflow](https://stackoverflow.com/questions/73815639/how-to-use-jsx-in-a-web-worker-with-vite)) (the option was removed in 4.x)
+Vite's `@vitejs/plugin-react` injects React Refresh code that assumes the presence of `window`, which doesn't exist in a worker. The simplest solution is to skip the React plugin entirely and use Vite's built-in esbuild JSX transform:
 
 ```jsx
+import { defineConfig } from 'vite'
+
 export default defineConfig({
-  plugins: [react({ fastRefresh: false })],
-  worker: { plugins: [react()] },
+  esbuild: {
+    jsx: 'automatic',
+  },
+  worker: {
+    format: 'es',
+  },
 })
 ```
+
+This works with Vite 7+ and provides full JSX support without HMR (full page reload on changes).
