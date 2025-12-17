@@ -18,7 +18,6 @@
     "dev": "cd examples/vite && npx vite",
     "postbuild": "tsc --emitDeclarationOnly",
     "prepublishOnly": "npm run build",
-    "prepare": "npm run build",
     "test": "echo no tests yet"
   },
   "husky": {
