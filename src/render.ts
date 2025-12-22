@@ -4,6 +4,8 @@ import mitt from 'mitt'
 import { extend, createRoot, ReconcilerRoot, Dpr, Size } from '@react-three/fiber'
 import { DomEvent } from '@react-three/fiber/dist/declarations/src/core/events'
 import { createPointerEvents } from './events'
+import { handleKeyboardEvent } from './keyboard'
+import { handlePointerLockEvent, handleMouseMovement } from './pointerlock'
 import type { RendererType } from './gl/types'
 
 
@@ -158,7 +160,27 @@ export function render(children: React.ReactNode, renderer: RendererType = 'webg
   }
 
   const handleEvents = (payload: any) => {
-    emitter.emit(payload.eventName, { ...payload, preventDefault() {}, stopPropagation() {} })
+    const { eventName } = payload
+
+    // Keyboard events
+    if (eventName === 'keydown' || eventName === 'keyup' || eventName === 'blur') {
+      handleKeyboardEvent(payload)
+      return
+    }
+
+    // Pointer lock events
+    if (eventName === 'pointerlockchange' || eventName === 'pointerlockerror') {
+      handlePointerLockEvent(payload)
+      return
+    }
+
+    // Accumulate mouse movement for pointer lock
+    if (eventName === 'pointermove' && payload.movementX !== undefined) {
+      handleMouseMovement(payload.movementX, payload.movementY)
+    }
+
+    // Emit to r3f event system
+    emitter.emit(eventName, { ...payload, preventDefault() {}, stopPropagation() {} })
   }
 
   const handleProps = (payload: any) => {

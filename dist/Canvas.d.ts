@@ -13,5 +13,7 @@ export interface CanvasProps extends Omit<RenderProps<HTMLCanvasElement>, 'size'
     eventSource?: HTMLElement | React.MutableRefObject<HTMLElement>;
     /** The event prefix that is cast into canvas pointer x/y events, default: "offset" */
     eventPrefix?: 'offset' | 'client' | 'page' | 'layer' | 'screen';
+    /** Enable pointer lock on canvas click (for FPS-style controls) */
+    pointerLock?: boolean;
 }
-export declare function Canvas({ eventSource, worker, fallback, style, className, id, ...props }: CanvasProps): React.JSX.Element;
+export declare function Canvas({ eventSource, worker, fallback, style, className, id, pointerLock, ...props }: CanvasProps): React.JSX.Element;

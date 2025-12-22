@@ -85,6 +85,7 @@ function Canvas({
   style,
   className,
   id,
+  pointerLock,
   ...props
 }) {
   const [shouldFallback, setFallback] = React.useState(false);
@@ -174,10 +175,87 @@ function Canvas({
       });
     };
     window.addEventListener('resize', handleResize);
+
+    // Keyboard events (attached to window)
+    const handleKeyDown = event => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: {
+          eventName: 'keydown',
+          key: event.key,
+          code: event.code,
+          repeat: event.repeat,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey
+        }
+      });
+    };
+    const handleKeyUp = event => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: {
+          eventName: 'keyup',
+          key: event.key,
+          code: event.code,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey
+        }
+      });
+    };
+    const handleBlur = () => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: {
+          eventName: 'blur'
+        }
+      });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
+    // Pointer lock events (attached to document)
+    const handlePointerLockChange = () => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: {
+          eventName: 'pointerlockchange',
+          locked: document.pointerLockElement === canvas
+        }
+      });
+    };
+    const handlePointerLockError = () => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: {
+          eventName: 'pointerlockerror'
+        }
+      });
+    };
+    document.addEventListener('pointerlockchange', handlePointerLockChange);
+    document.addEventListener('pointerlockerror', handlePointerLockError);
+
+    // Request pointer lock on click (if enabled)
+    const handlePointerLockClick = () => canvas.requestPointerLock();
+    if (pointerLock) {
+      canvas.addEventListener('click', handlePointerLockClick);
+    }
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('pointerlockchange', handlePointerLockChange);
+      document.removeEventListener('pointerlockerror', handlePointerLockError);
+      if (pointerLock) {
+        canvas.removeEventListener('click', handlePointerLockClick);
+      }
     };
-  }, [worker]);
+  }, [worker, pointerLock]);
   React.useEffect(() => {
     if (!worker) return;
     worker.postMessage({
@@ -202,6 +280,145 @@ function Canvas({
     },
     ref: canvasRef
   });
+}
+
+/**
+ * Keyboard state manager for worker context
+ */
+
+const keyboardState = new Map();
+const listeners$1 = new Set();
+
+/**
+ * Handle keyboard event from main thread
+ * @internal
+ */
+function handleKeyboardEvent(payload) {
+  if (payload.eventName === 'blur') {
+    keyboardState.clear();
+    return;
+  }
+  if (!payload.code) return;
+  const pressed = payload.eventName === 'keydown';
+
+  // Skip repeat events for keydown
+  if (pressed && payload.repeat) return;
+  const current = keyboardState.get(payload.code) ?? false;
+  if (current !== pressed) {
+    keyboardState.set(payload.code, pressed);
+    listeners$1.forEach(handler => {
+      handler({
+        key: payload.key ?? '',
+        code: payload.code,
+        pressed
+      });
+    });
+  }
+}
+
+/**
+ * Check if a specific key is currently pressed
+ * @param code - KeyboardEvent.code (e.g., 'KeyW', 'Space', 'ShiftLeft')
+ */
+function isKeyPressed(code) {
+  return keyboardState.get(code) ?? false;
+}
+
+/**
+ * Get keyboard state for common game controls
+ */
+function getKeyboardState() {
+  return {
+    forward: isKeyPressed('KeyW') || isKeyPressed('ArrowUp'),
+    backward: isKeyPressed('KeyS') || isKeyPressed('ArrowDown'),
+    left: isKeyPressed('KeyA') || isKeyPressed('ArrowLeft'),
+    right: isKeyPressed('KeyD') || isKeyPressed('ArrowRight'),
+    jump: isKeyPressed('Space'),
+    shift: isKeyPressed('ShiftLeft') || isKeyPressed('ShiftRight')
+  };
+}
+
+/**
+ * Subscribe to keyboard events
+ * @returns Unsubscribe function
+ */
+function onKeyboardEvent(handler) {
+  listeners$1.add(handler);
+  return () => listeners$1.delete(handler);
+}
+
+/**
+ * React hook for keyboard state (use in useFrame)
+ */
+function useKeyboard() {
+  return getKeyboardState;
+}
+
+/**
+ * Pointer lock state manager for worker context
+ */
+
+let pointerLocked = false;
+let accumulatedMovementX = 0;
+let accumulatedMovementY = 0;
+const listeners = new Set();
+
+/**
+ * Handle pointer lock events from main thread
+ * @internal
+ */
+function handlePointerLockEvent(payload) {
+  if (payload.eventName === 'pointerlockchange') {
+    const wasLocked = pointerLocked;
+    pointerLocked = payload.locked ?? false;
+    if (!pointerLocked) {
+      accumulatedMovementX = 0;
+      accumulatedMovementY = 0;
+    }
+    if (wasLocked !== pointerLocked) {
+      listeners.forEach(handler => handler(pointerLocked));
+    }
+  }
+}
+
+/**
+ * Handle mouse movement (called from pointermove)
+ * @internal
+ */
+function handleMouseMovement(movementX, movementY) {
+  if (pointerLocked) {
+    accumulatedMovementX += movementX;
+    accumulatedMovementY += movementY;
+  }
+}
+
+/**
+ * Check if pointer is currently locked
+ */
+function isPointerLocked() {
+  return pointerLocked;
+}
+
+/**
+ * Consume accumulated mouse delta since last call
+ */
+function consumeMouseDelta() {
+  const delta = {
+    x: accumulatedMovementX,
+    y: accumulatedMovementY
+  };
+  accumulatedMovementX = 0;
+  accumulatedMovementY = 0;
+  return delta;
+}
+
+/**
+ * Subscribe to pointer lock state changes
+ * @returns Unsubscribe function
+ */
+function onPointerLockChange(handler) {
+  listeners.add(handler);
+  return () => listeners.delete(handler);
 }
 
 /// <reference lib="webworker" />
@@ -371,7 +588,29 @@ function render(children, renderer = 'webgl') {
     });
   };
   const handleEvents = payload => {
-    emitter.emit(payload.eventName, {
+    const {
+      eventName
+    } = payload;
+
+    // Keyboard events
+    if (eventName === 'keydown' || eventName === 'keyup' || eventName === 'blur') {
+      handleKeyboardEvent(payload);
+      return;
+    }
+
+    // Pointer lock events
+    if (eventName === 'pointerlockchange' || eventName === 'pointerlockerror') {
+      handlePointerLockEvent(payload);
+      return;
+    }
+
+    // Accumulate mouse movement for pointer lock
+    if (eventName === 'pointermove' && payload.movementX !== undefined) {
+      handleMouseMovement(payload.movementX, payload.movementY);
+    }
+
+    // Emit to r3f event system
+    emitter.emit(eventName, {
       ...payload,
       preventDefault() {},
       stopPropagation() {}
@@ -420,4 +659,11 @@ function render(children, renderer = 'webgl') {
 }
 
 exports.Canvas = Canvas;
+exports.consumeMouseDelta = consumeMouseDelta;
+exports.getKeyboardState = getKeyboardState;
+exports.isKeyPressed = isKeyPressed;
+exports.isPointerLocked = isPointerLocked;
+exports.onKeyboardEvent = onKeyboardEvent;
+exports.onPointerLockChange = onPointerLockChange;
 exports.render = render;
+exports.useKeyboard = useKeyboard;

@@ -17,13 +17,15 @@ export interface CanvasProps
   eventSource?: HTMLElement | React.MutableRefObject<HTMLElement>
   /** The event prefix that is cast into canvas pointer x/y events, default: "offset" */
   eventPrefix?: 'offset' | 'client' | 'page' | 'layer' | 'screen'
+  /** Enable pointer lock on canvas click (for FPS-style controls) */
+  pointerLock?: boolean
 }
 
 function isRefObject<T>(ref: any): ref is React.MutableRefObject<T> {
   return ref && ref.current !== undefined
 }
 
-export function Canvas({ eventSource, worker, fallback, style, className, id, ...props }: CanvasProps) {
+export function Canvas({ eventSource, worker, fallback, style, className, id, pointerLock, ...props }: CanvasProps) {
   const [shouldFallback, setFallback] = React.useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null!)
   const hasTransferredToOffscreen = useRef(false)
@@ -124,10 +126,84 @@ export function Canvas({ eventSource, worker, fallback, style, className, id, ..
     }
 
     window.addEventListener('resize', handleResize)
+
+    // Keyboard events (attached to window)
+    const handleKeyDown = (event: KeyboardEvent) => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: {
+          eventName: 'keydown',
+          key: event.key,
+          code: event.code,
+          repeat: event.repeat,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey,
+        },
+      })
+    }
+    const handleKeyUp = (event: KeyboardEvent) => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: {
+          eventName: 'keyup',
+          key: event.key,
+          code: event.code,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey,
+        },
+      })
+    }
+    const handleBlur = () => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: { eventName: 'blur' },
+      })
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', handleBlur)
+
+    // Pointer lock events (attached to document)
+    const handlePointerLockChange = () => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: {
+          eventName: 'pointerlockchange',
+          locked: document.pointerLockElement === canvas,
+        },
+      })
+    }
+    const handlePointerLockError = () => {
+      worker.postMessage({
+        type: 'dom_events',
+        payload: { eventName: 'pointerlockerror' },
+      })
+    }
+    document.addEventListener('pointerlockchange', handlePointerLockChange)
+    document.addEventListener('pointerlockerror', handlePointerLockError)
+
+    // Request pointer lock on click (if enabled)
+    const handlePointerLockClick = () => canvas.requestPointerLock()
+    if (pointerLock) {
+      canvas.addEventListener('click', handlePointerLockClick)
+    }
+
     return () => {
       window.removeEventListener('resize', handleResize)
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', handleBlur)
+      document.removeEventListener('pointerlockchange', handlePointerLockChange)
+      document.removeEventListener('pointerlockerror', handlePointerLockError)
+      if (pointerLock) {
+        canvas.removeEventListener('click', handlePointerLockClick)
+      }
     }
-  }, [worker])
+  }, [worker, pointerLock])
 
   useEffect(() => {
     if (!worker) return
