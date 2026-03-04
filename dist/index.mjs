@@ -121,15 +121,28 @@ function Canvas({
       }
     };
     const currentEventSource = isRefObject(eventSource) ? eventSource.current : eventSource || canvas;
+
+    // Store handlers for cleanup — inline arrow functions can't be removed by removeEventListener
+    const eventHandlers = [];
     Object.values(EVENTS).forEach(([eventName, passive]) => {
-      currentEventSource.addEventListener(eventName, event => {
-        // Prevent default for all passive events
+      const handler = event => {
+        // Prevent default for all non-passive events
         if (!passive) event.preventDefault();
         // Capture pointer automatically on pointer down
         if (eventName === 'pointerdown') {
-          event.target.setPointerCapture(event.pointerId);
+          try {
+            event.target.setPointerCapture(event.pointerId);
+          } catch {
+            // Silently ignore — can fail during fullscreen transitions,
+            // pointer lock state changes, or DOM restructuring.
+            // Pointer capture is non-critical for scene interaction.
+          }
         } else if (eventName === 'pointerup') {
-          event.target.releasePointerCapture(event.pointerId);
+          try {
+            event.target.releasePointerCapture(event.pointerId);
+          } catch {
+            // Same as above
+          }
         }
         worker.postMessage({
           type: 'dom_events',
@@ -157,22 +170,33 @@ function Canvas({
             y: event.y
           }
         });
-      }, {
+      };
+      currentEventSource.addEventListener(eventName, handler, {
         passive
       });
+      eventHandlers.push([eventName, handler]);
     });
-    const handleResize = () => {
-      worker.postMessage({
-        type: 'resize',
-        payload: {
-          width: currentEventSource.clientWidth,
-          height: currentEventSource.clientHeight,
-          top: currentEventSource.offsetTop,
-          left: currentEventSource.offsetLeft
-        }
-      });
-    };
-    window.addEventListener('resize', handleResize);
+
+    // ResizeObserver replaces window.resize — covers ALL container resize cases:
+    // fullscreen transitions, sidebar toggles, panel resizes, AND window resize
+    const resizeObserver = new ResizeObserver(entries => {
+      if (!entries.length) return;
+      // Use clientWidth/clientHeight from currentEventSource (same as existing handleResize logic)
+      const width = currentEventSource.clientWidth;
+      const height = currentEventSource.clientHeight;
+      if (width > 0 && height > 0) {
+        worker.postMessage({
+          type: 'resize',
+          payload: {
+            width,
+            height,
+            top: currentEventSource.offsetTop,
+            left: currentEventSource.offsetLeft
+          }
+        });
+      }
+    });
+    resizeObserver.observe(currentEventSource);
 
     // Keyboard events (attached to window)
     const handleKeyDown = event => {
@@ -243,7 +267,12 @@ function Canvas({
       canvas.addEventListener('click', handlePointerLockClick);
     }
     return () => {
-      window.removeEventListener('resize', handleResize);
+      // Clean up EVENTS listeners (pointer, click, wheel, etc.)
+      eventHandlers.forEach(([eventName, handler]) => {
+        currentEventSource.removeEventListener(eventName, handler);
+      });
+      // Clean up ResizeObserver (replaces window.resize)
+      resizeObserver.disconnect();
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
@@ -254,13 +283,6 @@ function Canvas({
       }
     };
   }, [worker, pointerLock]);
-  useEffect(() => {
-    if (!worker) return;
-    worker.postMessage({
-      type: 'props',
-      payload: props
-    });
-  }, [worker, props]);
   return shouldFallback ? /*#__PURE__*/React.createElement(Canvas$1, _extends({
     id: id,
     className: className,
