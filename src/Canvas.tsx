@@ -124,11 +124,8 @@ export function Canvas({ eventSource, worker, fallback, style, className, id, po
       eventHandlers.push([eventName, handler])
     })
 
-    // ResizeObserver replaces window.resize — covers ALL container resize cases:
-    // fullscreen transitions, sidebar toggles, panel resizes, AND window resize
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!entries.length) return
-      // Use clientWidth/clientHeight from currentEventSource (same as existing handleResize logic)
+    // Send resize message to worker with current dimensions
+    const sendResize = () => {
       const width = currentEventSource.clientWidth
       const height = currentEventSource.clientHeight
       if (width > 0 && height > 0) {
@@ -142,8 +139,26 @@ export function Canvas({ eventSource, worker, fallback, style, className, id, po
           },
         })
       }
+    }
+
+    // ResizeObserver covers container resize: sidebar toggles, panel resizes, window resize
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!entries.length) return
+      sendResize()
     })
     resizeObserver.observe(currentEventSource)
+
+    // Fullscreen transitions may not trigger ResizeObserver reliably —
+    // layout recalc happens asynchronously after fullscreenchange.
+    // Explicitly send resize with a small delay to ensure dimensions are settled.
+    const handleFullscreenChange = () => {
+      // Immediate attempt
+      sendResize()
+      // Delayed attempt — layout may not have settled yet
+      setTimeout(sendResize, 100)
+      setTimeout(sendResize, 300)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
 
     // Keyboard events (attached to window)
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -215,8 +230,9 @@ export function Canvas({ eventSource, worker, fallback, style, className, id, po
       eventHandlers.forEach(([eventName, handler]) => {
         currentEventSource.removeEventListener(eventName, handler)
       })
-      // Clean up ResizeObserver (replaces window.resize)
+      // Clean up ResizeObserver and fullscreen listener
       resizeObserver.disconnect()
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleBlur)
