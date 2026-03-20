@@ -26,9 +26,11 @@ export function render(children: React.ReactNode, renderer: RendererType = 'webg
   let root: ReconcilerRoot<HTMLCanvasElement>
   let dpr: Dpr = [1, 2]
   let size: Size = { width: 0, height: 0, top: 0, left: 0 }
+  let initializing = false
   const emitter = mitt()
 
   const handleInit = async (payload: any) => {
+    initializing = true
     const {
       props: rawProps,
       drawingSurface: canvas,
@@ -147,15 +149,17 @@ export function render(children: React.ReactNode, renderer: RendererType = 'webg
       // Render children once
       await root.render(children)
     } catch (e: any) {
-      postMessage({ type: 'error', payload: e?.message })
+      postMessage({ type: 'error', payload: e?.message, stack: e?.stack })
     }
+
+    initializing = false
 
     // Shim window to the canvas from here on
     self.window = canvas
   }
 
   const handleResize = ({ width, height, top, left }: Size) => {
-    if (!root) return
+    if (!root || initializing) return
     root.configure({ size: (size = { width, height, top, left }), dpr })
   }
 
@@ -186,7 +190,7 @@ export function render(children: React.ReactNode, renderer: RendererType = 'webg
   const handleProps = (payload: any) => {
     // For WebGPU, we cannot reconfigure after init because r3f will try to create WebGLRenderer
     // All props must be passed during init. Only dpr updates are safe.
-    if (!root) return
+    if (!root || initializing) return
     if (payload.dpr) {
       dpr = payload.dpr
       root.configure({ size, dpr })

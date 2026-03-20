@@ -473,8 +473,10 @@ function render(children, renderer = 'webgl') {
     top: 0,
     left: 0
   };
+  let initializing = false;
   const emitter = mitt();
   const handleInit = async payload => {
+    initializing = true;
     const {
       props: rawProps,
       drawingSurface: canvas,
@@ -599,9 +601,11 @@ function render(children, renderer = 'webgl') {
     } catch (e) {
       postMessage({
         type: 'error',
-        payload: e?.message
+        payload: e?.message,
+        stack: e?.stack
       });
     }
+    initializing = false;
 
     // Shim window to the canvas from here on
     self.window = canvas;
@@ -612,7 +616,7 @@ function render(children, renderer = 'webgl') {
     top,
     left
   }) => {
-    if (!root) return;
+    if (!root || initializing) return;
     root.configure({
       size: size = {
         width,
@@ -655,7 +659,7 @@ function render(children, renderer = 'webgl') {
   const handleProps = payload => {
     // For WebGPU, we cannot reconfigure after init because r3f will try to create WebGLRenderer
     // All props must be passed during init. Only dpr updates are safe.
-    if (!root) return;
+    if (!root || initializing) return;
     if (payload.dpr) {
       dpr = payload.dpr;
       root.configure({
