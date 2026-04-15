@@ -1,0 +1,14 @@
+
+> @react-three/offscreen@0.0.8 build /Users/anton/FutureDesign/main/packages/react-three-offscreen
+> rollup -c --bundleConfigAsCjs
+
+[36m
+[1m./src/index.tsx[22m → [1mdist[22m...[39m
+[32mcreated [1mdist[22m in [1m607ms[22m[39m
+[36m
+[1m./src/index.tsx[22m → [1mdist/cjs[22m...[39m
+[32mcreated [1mdist/cjs[22m in [1m65ms[22m[39m
+
+> @react-three/offscreen@0.0.8 postbuild /Users/anton/FutureDesign/main/packages/react-three-offscreen
+> tsc --emitDeclarationOnly
+
