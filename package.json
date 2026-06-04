@@ -18,7 +18,7 @@
     "dev": "cd examples/vite && npx vite",
     "postbuild": "tsc --emitDeclarationOnly",
     "prepublishOnly": "npm run build",
-    "test": "echo no tests yet"
+    "test": "vitest run"
   },
   "husky": {
     "hooks": {
@@ -62,7 +62,8 @@
     "@rollup/plugin-babel": "catalog:",
     "@rollup/plugin-node-resolve": "catalog:",
     "@rollup/plugin-terser": "catalog:",
-    "@types/jest": "catalog:",
+    "vitest": "catalog:",
+    "jsdom": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
