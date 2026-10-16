@@ -16,7 +16,7 @@
   "scripts": {
     "build": "rollup -c --bundleConfigAsCjs",
     "dev": "cd examples/vite && npx vite",
-    "postbuild": "tsc --emitDeclarationOnly",
+    "postbuild": "tsc -p tsconfig.build.json --emitDeclarationOnly",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "check-types": "tsc --noEmit"
@@ -58,7 +58,6 @@
     "@babel/preset-react": "catalog:",
     "@babel/preset-typescript": "catalog:",
     "@eslint/js": "catalog:",
-    "@react-three/drei": "catalog:",
     "@react-three/fiber": "catalog:",
     "@rollup/plugin-babel": "catalog:",
     "@rollup/plugin-node-resolve": "catalog:",

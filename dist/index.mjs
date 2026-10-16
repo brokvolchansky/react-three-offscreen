@@ -473,6 +473,10 @@ function render(children, renderer = 'webgl') {
     top: 0,
     left: 0
   };
+  // Configuration received with the init message. root.configure() applies the whole configuration
+  // on every call and resets omitted props to their defaults (e.g. shadows → false), so every later
+  // configure call re-passes it, as react-three-fiber's own Canvas does on every size change.
+  let configuration = {};
   let initializing = false;
   const emitter = mitt();
   const handleInit = async payload => {
@@ -490,6 +494,11 @@ function render(children, renderer = 'webgl') {
       onCreated: userOnCreated,
       ...props
     } = rawProps || {};
+    // gl, events and scene are created once in the worker; size and dpr are tracked separately
+    configuration = {
+      ...props
+    };
+    for (const key of ['gl', 'events', 'scene', 'size', 'dpr']) delete configuration[key];
 
     // WebGPU requires integer dimensions, ensure they're at least 1
     const width = Math.max(1, Math.floor(rawWidth));
@@ -618,6 +627,7 @@ function render(children, renderer = 'webgl') {
   }) => {
     if (!root || initializing) return;
     root.configure({
+      ...configuration,
       size: size = {
         width,
         height,
@@ -657,12 +667,14 @@ function render(children, renderer = 'webgl') {
     });
   };
   const handleProps = payload => {
-    // For WebGPU, we cannot reconfigure after init because r3f will try to create WebGLRenderer
-    // All props must be passed during init. Only dpr updates are safe.
+    // Only dpr is updated after init. The configuration received with init is re-passed with it,
+    // because omitted props would be reset to their defaults. gl is never re-passed: for WebGPU,
+    // passing a renderer config again would make r3f try to create a WebGLRenderer.
     if (!root || initializing) return;
     if (payload.dpr) {
       dpr = payload.dpr;
       root.configure({
+        ...configuration,
         size,
         dpr
       });

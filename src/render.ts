@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import mitt from 'mitt'
-import { extend, createRoot, ReconcilerRoot, Dpr, Size } from '@react-three/fiber'
+import { extend, createRoot, ReconcilerRoot, Dpr, Size, RenderProps } from '@react-three/fiber'
 import { DomEvent } from '@react-three/fiber/dist/declarations/src/core/events'
 import { createPointerEvents } from './events'
 import { handleKeyboardEvent } from './keyboard'
@@ -26,6 +26,10 @@ export function render(children: React.ReactNode, renderer: RendererType = 'webg
   let root: ReconcilerRoot<HTMLCanvasElement>
   let dpr: Dpr = [1, 2]
   let size: Size = { width: 0, height: 0, top: 0, left: 0 }
+  // Configuration received with the init message. root.configure() applies the whole configuration
+  // on every call and resets omitted props to their defaults (e.g. shadows → false), so every later
+  // configure call re-passes it, as react-three-fiber's own Canvas does on every size change.
+  let configuration: RenderProps<HTMLCanvasElement> = {}
   let initializing = false
   const emitter = mitt()
 
@@ -41,6 +45,9 @@ export function render(children: React.ReactNode, renderer: RendererType = 'webg
       pixelRatio,
     } = payload
     const { onCreated: userOnCreated, ...props } = rawProps || {}
+    // gl, events and scene are created once in the worker; size and dpr are tracked separately
+    configuration = { ...props }
+    for (const key of ['gl', 'events', 'scene', 'size', 'dpr'] as const) delete configuration[key]
 
     // WebGPU requires integer dimensions, ensure they're at least 1
     const width = Math.max(1, Math.floor(rawWidth))
@@ -160,7 +167,7 @@ export function render(children: React.ReactNode, renderer: RendererType = 'webg
 
   const handleResize = ({ width, height, top, left }: Size) => {
     if (!root || initializing) return
-    root.configure({ size: (size = { width, height, top, left }), dpr })
+    root.configure({ ...configuration, size: (size = { width, height, top, left }), dpr })
   }
 
   const handleEvents = (payload: any) => {
@@ -188,12 +195,13 @@ export function render(children: React.ReactNode, renderer: RendererType = 'webg
   }
 
   const handleProps = (payload: any) => {
-    // For WebGPU, we cannot reconfigure after init because r3f will try to create WebGLRenderer
-    // All props must be passed during init. Only dpr updates are safe.
+    // Only dpr is updated after init. The configuration received with init is re-passed with it,
+    // because omitted props would be reset to their defaults. gl is never re-passed: for WebGPU,
+    // passing a renderer config again would make r3f try to create a WebGLRenderer.
     if (!root || initializing) return
     if (payload.dpr) {
       dpr = payload.dpr
-      root.configure({ size, dpr })
+      root.configure({ ...configuration, size, dpr })
     }
   }
 
