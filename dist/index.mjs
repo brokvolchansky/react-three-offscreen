@@ -275,12 +275,6 @@ function Canvas({
     };
     document.addEventListener('pointerlockchange', handlePointerLockChange);
     document.addEventListener('pointerlockerror', handlePointerLockError);
-
-    // Request pointer lock on click (if enabled)
-    const handlePointerLockClick = () => canvas.requestPointerLock();
-    if (pointerLock) {
-      canvas.addEventListener('click', handlePointerLockClick);
-    }
     return () => {
       // Clean up EVENTS listeners (pointer, click, wheel, etc.)
       eventHandlers.forEach(([eventName, handler]) => {
@@ -294,11 +288,21 @@ function Canvas({
       window.removeEventListener('blur', handleBlur);
       document.removeEventListener('pointerlockchange', handlePointerLockChange);
       document.removeEventListener('pointerlockerror', handlePointerLockError);
-      if (pointerLock) {
-        canvas.removeEventListener('click', handlePointerLockClick);
-      }
     };
-  }, [worker, pointerLock]);
+  }, [worker]);
+
+  // Request pointer lock on click (if enabled). A separate effect: the host may toggle `pointerLock` often
+  // (for example while its in-scene UI owns the pointer), and that must not re-subscribe the event
+  // forwarding, the resize observer or the worker channel above.
+  useEffect(() => {
+    if (!worker || !pointerLock || shouldFallback) return;
+    const canvas = canvasRef.current;
+    const handlePointerLockClick = () => canvas.requestPointerLock();
+    canvas.addEventListener('click', handlePointerLockClick);
+    return () => {
+      canvas.removeEventListener('click', handlePointerLockClick);
+    };
+  }, [worker, pointerLock, shouldFallback]);
   return shouldFallback ? /*#__PURE__*/React.createElement(Canvas$1, _extends({
     id: id,
     className: className,

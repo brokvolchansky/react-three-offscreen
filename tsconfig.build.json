@@ -1,5 +1,5 @@
 {
   // Declaration emit for the published build: library sources only, tests excluded.
   "extends": "./tsconfig.json",
-  "exclude": ["src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }
